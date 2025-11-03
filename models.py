@@ -1,10 +1,11 @@
-from pydantic import BaseModel
+from sqlalchemy import Column, Integer, String
+from database import Base
 
 
 
-class UserInfo(BaseModel):
-    name: str
-    age: int
-    nationality: str
-    phone_number: int
-    salary: float
+class Product(Base):
+    __tablename__= "product"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String)
+    description = Column(String, nullable=True)
