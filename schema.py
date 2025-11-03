@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-
+from typing import Optional
 
 
 class BaseProduct(BaseModel):
@@ -10,3 +10,8 @@ class BaseProduct(BaseModel):
 class ProductCreate(BaseModel):
     name: str
     description: str
+
+
+class UpdateProduct(BaseModel):
+    name : Optional[str]=None
+    description : Optional[str]=None
