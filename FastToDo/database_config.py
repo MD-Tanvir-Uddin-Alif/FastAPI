@@ -9,7 +9,7 @@ engine = create_engine(SQLDB_Alchamy_URL)
 
 SessionLocal = sessionmaker(autocommit=False,autoflush=False, bind=engine)
 
-Base = declarative_base
+Base = declarative_base()
 
 def get_db():
     db = SessionLocal()
