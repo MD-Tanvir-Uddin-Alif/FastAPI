@@ -82,9 +82,21 @@ def dete_task(t_id: int, db: Session=Depends(get_db)):
         )
 
 
-@app.put('update-task/{t_id}')
+@app.put('/update-task/{t_id}')
 def update_task(t_id: int, UTask:UpdateToDoSchema, db: Session=Depends(get_db)):
-    task = db.query(ToDoModel).filter(ToDoModel.id==id).first()
+    task = db.query(ToDoModel).filter(ToDoModel.id==t_id).first()
     
-    for key, value in UTask.dict(exclude=True).items():
-        task
+    if task:
+        for key, value in UTask.dict(exclude_none=True).items():
+            setattr(task, key, value)
+        db.commit()
+        db.refresh(task)
+        raise HTTPException(
+            status_code=status.HTTP_201_CREATED,
+            detail="task updated"
+        )
+    
+    return JSONResponse(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        content="something went wronk"
+    )
