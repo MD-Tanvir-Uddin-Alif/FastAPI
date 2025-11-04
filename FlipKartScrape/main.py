@@ -1,10 +1,7 @@
-import asyncio
-asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
-
-
 from database_config import Base, engine, get_db
-from fastapi import FastAPI, Depends
+from fastapi import FastAPI, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from fastapi.responses import JSONResponse
 from models import ProductDetails
 
 from scraper import run_all_scraper
@@ -30,3 +27,18 @@ async def scrape_flipKart(db: Session = Depends(get_db)):
     
     db.commit()
     return {'message':'scraped sucessfully', 'total_saved':len(data)}
+
+
+@app.get('/product/{category}')
+def get_prodcut_by_category(category: str, db: Session = Depends(get_db)):
+    products = db.query(ProductDetails).filter(ProductDetails.category==category).all()
+    
+    if len(products):
+        return{'message':'Product found', 'data':products}
+    else:
+        return{'message':'No product is found based on the search query'}
+    
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Something went worg"
+    )

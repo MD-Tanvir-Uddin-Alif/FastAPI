@@ -1,49 +1,50 @@
-from playwright.async_api import async_playwright
+from playwright.sync_api import sync_playwright  # Notice: sync_playwright, not async
 import asyncio
 import time
 
 
-# ---------- ASYNC SCRAPER ----------
-async def Scrape_product(name, results):
-    async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=False, slow_mo=5)
-        context = await browser.new_context(
+# ---------- SYNCHRONOUS SCRAPER (no async/await here) ----------
+def Scrape_product(name, results):
+    """Simple synchronous function - no async needed"""
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        context = browser.new_context(
             user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         )
-        page = await context.new_page()
+        page = context.new_page()
 
-        for page_num in range(1, 10):
+        for page_num in range(1, 11):
             print(f"\n  Scraping {name} | Page {page_num}")
-            await page.goto(
+            page.goto(
                 f"https://www.flipkart.com/search?q={name}&otracker=search&page={page_num}",
                 wait_until="domcontentloaded"
             )
 
-            last_height = await page.evaluate("document.body.scrollHeight")
+            last_height = page.evaluate("document.body.scrollHeight")
             while True:
-                await page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
-                await asyncio.sleep(1)
-                new_height = await page.evaluate("document.body.scrollHeight")
+                page.evaluate("window.scrollTo(0, document.body.scrollHeight)")
+                time.sleep(1)  # Regular sleep, not asyncio.sleep
+                new_height = page.evaluate("document.body.scrollHeight")
                 if new_height == last_height:
                     break
                 last_height = new_height
 
             PageProducts = page.locator("div._75nlfW")
-            count = await PageProducts.count()
+            count = PageProducts.count()
 
             for i in range(count):
                 product = PageProducts.nth(i)
                 produt_images = product.locator("img")
-                image_link = await produt_images.nth(0).get_attribute('src')
+                image_link = produt_images.nth(0).get_attribute('src')
 
                 product_all_links = product.locator('a')
-                product_link = await product_all_links.nth(0).get_attribute('href')
+                product_link = product_all_links.nth(0).get_attribute('href')
 
                 product__all_prices = product.locator("div:has-text('₹')")
-                product_price = await product__all_prices.nth(-1).inner_text()
+                product_price = product__all_prices.nth(-1).inner_text()
                 product_price = product_price.strip() if product_price else "N/A"
 
-                product_title = await produt_images.nth(0).get_attribute('alt')
+                product_title = produt_images.nth(0).get_attribute('alt')
 
                 if not product_title:
                     continue
@@ -56,17 +57,26 @@ async def Scrape_product(name, results):
                     "product_link": f"https://www.flipkart.com{product_link}",
                 })
 
-        await browser.close()
+        browser.close()
 
 
-# ---------- ASYNC RUNNER ----------
+# ---------- ASYNC RUNNER (called from FastAPI) ----------
 async def run_all_scraper():
+    """Run the sync scrapers in parallel using threads"""
+    import concurrent.futures
+    
     results = []
-    tasks = [
-        Scrape_product("laptops", results),
-        Scrape_product("mobiles", results),
-        Scrape_product("tabs", results),
-    ]
-    await asyncio.gather(*tasks)
-    return results  
+    loop = asyncio.get_event_loop()
+    
+    # Run each scraper in its own thread
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        futures = [
+            loop.run_in_executor(executor, Scrape_product, "laptop", results),
+            loop.run_in_executor(executor, Scrape_product, "mobile", results),
+            loop.run_in_executor(executor, Scrape_product, "tab", results),
+        ]
+        await asyncio.gather(*futures)
+    
+    return results
+
 
