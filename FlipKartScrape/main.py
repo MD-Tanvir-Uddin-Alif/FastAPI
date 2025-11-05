@@ -42,3 +42,18 @@ def get_prodcut_by_category(category: str, db: Session = Depends(get_db)):
         status_code=status.HTTP_400_BAD_REQUEST,
         detail="Something went worg"
     )
+
+
+@app.get('/all/products/')
+def get_all_products(db: Session = Depends(get_db)):
+    products = db.query(ProductDetails).all()
+    
+    if len(products):
+        return{'message':'Product found', 'data':products}
+    else:
+        return{'message':'No product is found'}
+    
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail="Something went worg"
+    )
