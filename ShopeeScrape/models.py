@@ -1,5 +1,6 @@
-from sqlalchemy import Integer, String, Column, Float, BigInteger
+from sqlalchemy import Integer, String, Column, Float, BigInteger, DateTime
 from database_config import Base
+from datetime import datetime, UTC
 
 class Category(Base):
     __tablename__ = 'categories'
@@ -9,6 +10,15 @@ class Category(Base):
     parent_catid = Column(Integer, nullable=True)  
     parent_category_name = Column(String, nullable=True) 
 
+
+class parentCategories(Base):
+    
+    __tablename__ = 'parent_categories'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    parent_id = Column(Integer)
+    name = Column(String)
+    time_stamp_of_scraped = Column(DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
 class ProductsModel(Base):
     
@@ -32,3 +42,10 @@ class ProductsModel(Base):
     rating_count = Column(Integer)
     shop_location = Column(String)
     stock = Column(Integer)
+
+
+class ProductDetailModel(Base):
+    
+    __tablename__ = 'product_detail'
+    
+    id = Column(Integer, primary_key=True, index=True)

@@ -18,7 +18,7 @@ from behavior_function import simulate_human_behavior
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
-    filename='category_and_subcategory_wise_product.log', 
+    filename='category_and_subcategory_wise_product_scrape.log', 
     filemode='a'
 )
 
@@ -33,6 +33,7 @@ def scrape_category_wise_products(categories):
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--ignore-ssl-errors=yes')
     options.add_argument('--ignore-certificate-errors')
+    # options.add_argument('--headless=new')
     options.accept_insecure_certs = True
     driver = Chrome(version_main=141, options=options, seleniumwire_options=seleniumwire_options)
     site_url = "https://shopee.sg"
@@ -125,7 +126,7 @@ def scrape_category_wise_products(categories):
             products_data = []
             found_products = False
             for req in driver.requests:
-                if "/api/v4/search/search_items?by=" in req.url and req.response:
+                if "search/search_items?by=" in req.url and req.response:
                     logging.info(f"Found Product API: {req.url}")
                     logging.info(f"Status: {req.response.status_code}")
                     decoded_body = decode(req.response.body, req.response.headers.get('Content-Encoding', 'identity'))

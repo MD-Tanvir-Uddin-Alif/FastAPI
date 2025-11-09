@@ -13,32 +13,20 @@ import os
 
 from behavior_function import simulate_human_behavior
 
-def get_shopee_categories():
-    """
-    This function runs the entire Shopee category scraping process:
-    - Sets up undetected Chrome with SeleniumWire
-    - Loads cookies, handles popups, simulates human behavior
-    - Navigates to categories page
-    - Captures and extracts the 'get_category_tree' API response
-    - Extracts catid, category_name, parent_catid, parent_category_name
-    - Returns a list of dicts with the extracted data
-    - Cleans up the driver
-    """
+def scrape_shopee_product(shop_id, product_id):
     load_dotenv()
     email = os.getenv('shoppy_mail')
     password = os.getenv('shoppy_password')
 
     seleniumwire_options = {
-        'verify_ssl': False  # Disable SSL verification to avoid backend errors
+        'verify_ssl': False
     }
 
     options = ChromeOptions()
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--ignore-ssl-errors=yes')
     options.add_argument('--ignore-certificate-errors')
-    # options.add_argument('--headless=new')
-    # options.add_argument('--window-size=1920,1080')
-    options.accept_insecure_certs = True  # Key addition to accept insecure certs
+    options.accept_insecure_certs = True
 
     driver = Chrome(version_main=141, options=options, seleniumwire_options=seleniumwire_options)
 
@@ -46,7 +34,6 @@ def get_shopee_categories():
     driver.get(site_url)
     driver.maximize_window()
 
-    # wait for page to load
     WebDriverWait(driver, 15).until(
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
@@ -87,17 +74,17 @@ def get_shopee_categories():
         if domain:
             normalized_domain = domain.lstrip(".")
             if normalized_domain == current_host:
-                cookie_payload["domain"] = normalized_domain  # Use without leading dot to avoid invalid domain error
+                cookie_payload["domain"] = normalized_domain
             else:
-                continue  # Skip if domain doesn't match
+                continue
 
         try:
             driver.add_cookie(cookie_payload)
             added += 1
         except Exception as e:
-            print(f"Failed to add cookie {cookie.get('name')!r}: {e}. Payload: {cookie_payload}")
+            print(f"Failed to add cookie {cookie.get('name')!r}: {e}")
 
-    print(f"Attempted to add {len(cookies)} cookies, successfully added {added} (approx).")
+    print(f"Successfully added {added} cookies.")
     time.sleep(1)
     driver.refresh()
     time.sleep(5)
@@ -106,72 +93,83 @@ def get_shopee_categories():
         close_popUP = WebDriverWait(driver, 10).until(
             EC.element_to_be_clickable((By.XPATH, '//*[@id="HomePagePopupBannerSection"]/div[2]/div'))
         )
-        delay = random.uniform(0.5,0.9)
+        delay = random.uniform(0.5, 0.9)
         actions = ActionChains(driver)
         actions.move_to_element(close_popUP).pause(delay).click().perform()
     except:
-        print("dint got the popup")
+        print("No popup found")
 
-    human_simulate = random.uniform(1,5)
+    human_simulate = random.uniform(1, 7)
     simulate_human_behavior(driver, int(human_simulate)) 
 
-    driver.get('https://shopee.sg/all_categories')
+    product_url = f'https://shopee.sg/abc-i.{shop_id}.{product_id}'
+    driver.get(product_url)
 
     WebDriverWait(driver, 15).until(
         lambda d: d.execute_script("return document.readyState") == "complete"
     )
-    human_simulate_incat = random.uniform(1,5)
+    human_simulate_incat = random.uniform(1, 7)
     simulate_human_behavior(driver, int(human_simulate_incat)) 
 
-    driver.scopes = [r'.*shopee\.sg/api.*']  # Use raw string to fix SyntaxWarning
+    driver.scopes = [r'.*shopee\.sg/api.*']
 
-    # Hunt for the specific API
-    found = False
-    all_extracted = []  # Default empty list if not found
+    # Extract product data
+    product_info = {}
+    found_product = False
+
     for req in driver.requests:
-        if "get_category_tree" in req.url.lower() and req.response:  # Case-insensitive match
-            print(f"Found API: {req.url}")
-            print(f"Method: {req.method}")
+        if "/get_pc?item_id=" in req.url and req.response:
+            print(f"Found Product API: {req.url}")
             print(f"Status: {req.response.status_code}")
 
-            # Decode the response body (handles compression like gzip)
             decoded_body = decode(req.response.body, req.response.headers.get('Content-Encoding', 'identity'))
             body_text = decoded_body.decode('utf-8', errors='ignore')
-
+            
             try:
                 data = json.loads(body_text)
 
-                # Function to extract catid, category_name, parent_catid, parent_category_name
-                def extract_categories(categories, extracted=[], parent_catid=None, parent_name=None):
-                    for cat in categories:
-                        extracted.append({
-                            "catid": cat['catid'],
-                            "category_name": cat['name'],
-                            "parent_catid": parent_catid if parent_catid is not None else cat['parent_catid'],
-                            "parent_category_name": parent_name if parent_name is not None else None
-                        })
-                        
-                        # If children, recurse
-                        if 'children' in cat and cat['children']:
-                            extract_categories(cat['children'], extracted, cat['catid'], cat['name'])
+                # Extract product items
+                if 'data' in data and 'item' in data['data']:
+                    item = data['data']['item']  # Direct access to the item dict
                     
-                    return extracted
+                    # Extract the data you need
+                    product_info = {
+                        # Price comparison data
+                        'price': item.get('price', 0) / 100000,  # Convert to actual price
+                        'price_before_discount': item.get('price_before_discount', 0) / 100000,
+                        'raw_discount': item.get('raw_discount', 0),
+                        'discount_percentage': item.get('show_discount', 0),  # Adjusted key, as 'discount' might not be present
+                        
+                        # Product listing data
+                        'name': item.get('title', ''),  # Use 'title' instead of 'name'
+                        'image': f"https://down-sg.img.susercontent.com/file/{item.get('image', '')}",
+                        'sold': data['data']['product_review'].get('sold_count_display', '0').replace('+', '').replace('k', '000') if 'product_review' in data['data'] else 0,  # Use from product_review, convert '10k+' to 10000
+                        'historical_sold': data['data']['product_review'].get('historical_sold_display', '0').replace('+', '').replace('k', '000') if 'product_review' in data['data'] else 0,  # Similar
+                        
+                        # Shop info
+                        'shop_name': data['data']['shop_detailed'].get('name', '') if 'shop_detailed' in data['data'] else '',
+                        
+                        # Additional useful data
+                        'itemid': item.get('item_id', ''),
+                        'shopid': item.get('shop_id', ''),
+                        'rating_star': item['item_rating'].get('rating_star', 0) if 'item_rating' in item else 0,
+                        'rating_count': sum(item['item_rating'].get('rating_count', [0])) if 'item_rating' in item else 0,
+                        'shop_location': item.get('shop_location', ''),
+                        'stock': item.get('stock', 0),
+                    }
+                    
+                    found_product = True
+                    break  # Since it's a single product, no need to check further requests
 
-                # Extract
-                if 'data' in data and 'category_list' in data['data']:
-                    all_extracted = extract_categories(data['data']['category_list'])
-                else:
-                    print("No category_list found!")
+            except json.JSONDecodeError as e:
+                print(f"JSON decode error: {e}")
+            except Exception as e:
+                print(f"Error processing response: {e}")
 
-            except json.JSONDecodeError:
-                print("Response isn't JSON? Raw content:\n", body_text)
-
-            found = True
-            break
-
-    if not found:
-        print("No 'get_category_tree' API found. Try increasing sleep time or check dev tools.")
-
-    driver.quit() 
-
-    return all_extracted 
+    driver.quit()
+    
+    if found_product:
+        return product_info
+    else:
+        print("No product found.")
+        return {}
