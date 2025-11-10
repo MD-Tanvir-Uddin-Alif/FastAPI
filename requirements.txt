@@ -13,3 +13,5 @@ driver==0.1.0
 setuptools==80.9.0
 selenium-wire==5.1.0
 blinker==1.7.0
+# for windows time
+tzdata==2025.2

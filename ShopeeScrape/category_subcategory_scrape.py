@@ -33,7 +33,8 @@ def scrape_category_wise_products(categories):
     options.add_argument('--disable-blink-features=AutomationControlled')
     options.add_argument('--ignore-ssl-errors=yes')
     options.add_argument('--ignore-certificate-errors')
-    # options.add_argument('--headless=new')
+    options.add_argument('--headless=new')
+    # options.add_argument('--window-size=1920,1080')
     options.accept_insecure_certs = True
     driver = Chrome(version_main=141, options=options, seleniumwire_options=seleniumwire_options)
     site_url = "https://shopee.sg"
@@ -43,7 +44,7 @@ def scrape_category_wise_products(categories):
         WebDriverWait(driver, 15).until(
             lambda d: d.execute_script("return document.readyState") == "complete"
         )
-        logging.info(f"Successfully loaded initial site: {site_url}")
+        # logging.info(f"Successfully loaded initial site: {site_url}")
     except Exception as e:
         logging.error(f"Failed to load initial site {site_url}: {str(e)}")
     
@@ -106,7 +107,7 @@ def scrape_category_wise_products(categories):
     for cat in categories:
         parent_catid = cat["parent_catid"]
         catid = cat["catid"]
-        logging.info(f"Processing category: parent={parent_catid}, catid={catid}")
+        # logging.info(f"Processing category: parent={parent_catid}, catid={catid}")
         for i in range(2):  # Adjust range for more pages if needed
             page_url = f'https://shopee.sg/abc-cat.{parent_catid}.{catid}?page={i}&sortBy=sales'
             try:
@@ -127,8 +128,8 @@ def scrape_category_wise_products(categories):
             found_products = False
             for req in driver.requests:
                 if "search/search_items?by=" in req.url and req.response:
-                    logging.info(f"Found Product API: {req.url}")
-                    logging.info(f"Status: {req.response.status_code}")
+                    # logging.info(f"Found Product API: {req.url}")
+                    # logging.info(f"Status: {req.response.status_code}")
                     decoded_body = decode(req.response.body, req.response.headers.get('Content-Encoding', 'identity'))
                     body_text = decoded_body.decode('utf-8', errors='ignore')
                     

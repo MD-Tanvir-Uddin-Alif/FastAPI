@@ -1,6 +1,6 @@
-from sqlalchemy import Integer, String, Column, Float, BigInteger, DateTime
+from sqlalchemy import Integer, String, Column, Float, BigInteger, DateTime, Boolean
 from database_config import Base
-from datetime import datetime, UTC
+from datetime import datetime, UTC, timezone
 
 class Category(Base):
     __tablename__ = 'categories'
@@ -16,7 +16,7 @@ class parentCategories(Base):
     __tablename__ = 'parent_categories'
     
     id = Column(Integer, primary_key=True, index=True)
-    parent_id = Column(Integer)
+    category_id = Column(Integer)
     name = Column(String)
     time_stamp_of_scraped = Column(DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC))
 
@@ -49,3 +49,18 @@ class ProductDetailModel(Base):
     __tablename__ = 'product_detail'
     
     id = Column(Integer, primary_key=True, index=True)
+
+
+class DeviceModel(Base):
+    
+    __tablename__ = 'device'
+    
+    id = Column(Integer, primary_key=True, index=True)
+    device_name = Column(String)
+    email = Column(String)
+    password = Column(String)
+    cookies = Column(String)
+    number_of_attem = Column(Integer, default=0)
+    is_faild = Column(Boolean, default=False)
+    failed_time = Column(DateTime(timezone=True), nullable=True ,default=None, onupdate=lambda: datetime.now(timezone.utc))
+    update_time = Column(DateTime(timezone=True), default=datetime.now(UTC), onupdate=datetime.now(UTC))

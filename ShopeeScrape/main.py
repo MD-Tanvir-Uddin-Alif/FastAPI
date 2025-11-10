@@ -2,18 +2,20 @@ from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from typing import List
-from datetime import datetime
+from datetime import datetime, UTC
 from zoneinfo import ZoneInfo
 import time
 
 from database_config import engine, Base, get_db
 from Scraper import get_shopee_categories
 from category_subcategory_scrape import scrape_category_wise_products
+from playWright_Category_base_product import Product_Scrape_by_Category
 from scrape_product_details import scrape_shopee_product
 from models import Category, ProductsModel, parentCategories
 from schema import CategoryOutSchema
 
 Base.metadata.create_all(bind=engine)
+# Base.metadata.drop_all(engine)
 
 app = FastAPI()
 
@@ -61,7 +63,27 @@ def get_all_main_category(db: Session=Depends(get_db)):
     categories = db.query(Category).filter(Category.parent_catid==0).all()
     if not categories:
         return JSONResponse( status_code=status.HTTP_404_NOT_FOUND, content="something went wrong" )
-    return categories
+    
+    for cat in categories:
+        # Check if this category already exists
+        existing_parent = db.query(parentCategories).filter(
+            parentCategories.parent_id == cat.catid
+        ).first()
+
+        if existing_parent:
+            # Update the timestamp if already exists
+            existing_parent.time_stamp_of_scraped = datetime.now(UTC)
+        else:
+            # Insert new record
+            new_parent = parentCategories(
+                parent_id=cat.catid,
+                name=cat.category_name,
+                time_stamp_of_scraped=datetime.now(UTC)
+            )
+            db.add(new_parent)
+
+    db.commit()
+    return {"saved parent categories"}
 
 
 #--------------------------------------------
@@ -89,7 +111,7 @@ def get_product_by_filtering(category: int, db: Session=Depends(get_db)):
             content={"detail": "No sub-categories found for this parent"}
         )
     
-    return sub_categories
+    return {'message':f"{len(sub_categories)}", "data":sub_categories}
 
 
 #--------------------------------------
@@ -120,7 +142,7 @@ def trigger_category_scrape(db: Session = Depends(get_db)):
         data = db.query(Category.parent_catid, Category.catid).filter(Category.parent_catid == parent_id).all()
         result = [{"parent_catid": row[0], "catid": row[1]} for row in data]
         
-        products = scrape_category_wise_products(result)
+        products = Product_Scrape_by_Category(result)
         
         for prod in products:
             db_product = ProductsModel(**prod)
@@ -135,7 +157,7 @@ def trigger_category_scrape(db: Session = Depends(get_db)):
             db.commit()
         
         if idx < len(parent_ids) - 1:
-            time.sleep(600)
+            time.sleep(180)
     return {'message': f"Saved {total_saved} products to database across all parents"}
 
 
